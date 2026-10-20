@@ -34,7 +34,9 @@ def test_collect_and_write(tmp_path, monkeypatch):
             GateRecord("ts-c135", "themsquared", "shell", "en", "echo bad", "deny", "destructive")]
     monkeypatch.setattr(analyze_gate, "load_all", lambda data_root, include=None: recs)
     df = analyze_gate.collect(results, tmp_path / "data", load_policy())
-    assert len(df) == 2 and set(df.pred) <= {"allow", "ask", "deny"}
+    # collect() appends the code-only rules_only baseline (one row per record), so 2 fake + 2 rules_only
+    assert len(df) == 4 and set(df.pred) <= {"allow", "ask", "deny"}
+    assert set(df.backend) == {"fake", "rules_only"}
     out = analyze_gate.write_summaries(df, tmp_path / "summary")
     names = {p.name for p in out}
     assert "headline.csv" in names and "summary.md" in names

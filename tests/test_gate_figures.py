@@ -44,3 +44,15 @@ def test_latency_cost_korean(tmp_path):
     pair = pd.DataFrame({"en_minus_ko_acc": [0.05, 0.12], "agreement": [0.9, 0.8]},
                         index=pd.MultiIndex.from_tuples([("typesafe", "jev-1.14.0"), ("upstage", "solar-decide")], names=["backend", "model"]))
     assert all(p.exists() for p in gate_figures.fig_korean_gap(pair, tmp_path, "f9"))
+
+
+def test_frontier_figures_render(tmp_path):
+    import pandas as pd
+    from dalab.plots import gate_figures
+    sc = pd.DataFrame({"dangerous_pass": [0.0, 0.02, 0.1], "safe_friction": [0.5, 0.15, 0.08],
+                       "cost_per_1k": [0.0, 0.9, 18.0], "latency_p50_ms": [0.0, 120.0, 2200.0],
+                       "latency_p95_ms": [0.0, 200.0, 4000.0]},
+                      index=pd.MultiIndex.from_tuples([("rules_only", "rules"), ("typesafe", "jev-1.14.0"),
+                                                       ("llm_judge", "gpt-6-luna")], names=["backend", "model"]))
+    assert all(p.exists() and p.stat().st_size > 0 for p in gate_figures.fig_safety_vs_cost(sc, tmp_path, "f10"))
+    assert all(p.exists() for p in gate_figures.fig_safety_vs_latency(sc, tmp_path, "f11"))

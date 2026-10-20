@@ -49,6 +49,20 @@ def make_gate_figures(summary_dir: Path, out_dir: Path) -> list[Path]:
             if len(cm):
                 written += gate_figures.fig_confusion(cm, p.stem.replace("__", " · "), out_dir, f"f2_cm_{p.stem}")
 
+    # Trade-off frontiers (the headline insight figures) + cost bar, from the joined safety/cost table.
+    safety_cost_csv = summary_dir / "safety_cost.csv"
+    if safety_cost_csv.exists():
+        sc = pd.read_csv(safety_cost_csv, index_col=[0, 1])
+        if len(sc):
+            written += gate_figures.fig_safety_vs_cost(sc, out_dir, "f10_safety_vs_cost")
+            written += gate_figures.fig_safety_vs_latency(sc, out_dir, "f11_safety_vs_latency")
+
+    cost_csv = summary_dir / "cost.csv"
+    if cost_csv.exists():
+        cost = pd.read_csv(cost_csv, index_col=[0, 1])
+        if len(cost) and "cost_per_1k" in cost.columns:
+            written += gate_figures.fig_cost_bar(cost, out_dir, "f7_cost")
+
     # Optional: calibration reliability points if a future analyze step emits them.
     cal_points = summary_dir / "calibration_points.csv"
     if cal_points.exists():

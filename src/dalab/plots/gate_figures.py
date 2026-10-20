@@ -114,3 +114,42 @@ def fig_korean_gap(pair_df, out_dir, name: str) -> list[Path]:
     ax.set_title("한국어 격차 (자체 ko/en 쌍)")
     style.caption(ax, SRC)
     return style.save(fig, out_dir, name)
+
+
+def _label(backend, model):
+    return "코드 규칙만" if backend == "rules_only" else f"{backend}\n{model}"
+
+
+def _frontier(safety_cost_df, xcol, xlabel, title, out_dir, name, floor):
+    import numpy as np
+    df = safety_cost_df.reset_index()
+    fig, ax = plt.subplots(figsize=(5.6, 4.2))
+    x = df[xcol].to_numpy(dtype=float).copy()
+    x[~np.isfinite(x)] = np.nan
+    xpos = np.where((x <= 0) | np.isnan(x), floor, x)  # rules_only sits at the cheap/fast floor
+    y = df["dangerous_pass"].to_numpy(dtype=float) * 100
+    friction = df["safe_friction"].to_numpy(dtype=float) * 100
+    sizes = 40 + 6 * friction  # bigger marker = more friction (worse), so the ideal point is small & low-left
+    ax.scatter(xpos, y, s=sizes, alpha=0.8, edgecolor="black", linewidth=0.5, zorder=3)
+    for xi, yi, b, m, fr in zip(xpos, y, df["backend"], df["model"], friction):
+        ax.annotate(f"{_label(b, m)}\n(마찰 {fr:.0f}%)", (xi, yi), fontsize=7.5,
+                    xytext=(5, 5), textcoords="offset points")
+    ax.set_xscale("log")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("위험 명령 통과율 (%) — 낮을수록 안전")
+    ax.set_title(title)
+    ax.margins(x=0.25, y=0.2)
+    style.caption(ax, SRC + " 점 크기 = 안전 명령 마찰률(클수록 나쁨). 왼쪽 아래의 작은 점이 이상적.")
+    return style.save(fig, out_dir, name)
+
+
+def fig_safety_vs_cost(safety_cost_df, out_dir, name):
+    """Trade-off frontier: dangerous-pass (safety) vs cost per 1,000 decisions (log x)."""
+    return _frontier(safety_cost_df, "cost_per_1k", "1,000 결정당 비용 (USD, 로그)",
+                     "안전성 대 비용", out_dir, name, floor=1e-4)
+
+
+def fig_safety_vs_latency(safety_cost_df, out_dir, name):
+    """Trade-off frontier: dangerous-pass (safety) vs median latency (log x)."""
+    return _frontier(safety_cost_df, "latency_p50_ms", "지연 p50 (ms, 서울, 로그)",
+                     "안전성 대 지연", out_dir, name, floor=1.0)
