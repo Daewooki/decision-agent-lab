@@ -1,0 +1,45 @@
+# Layered gate policy.
+# Stage 1 hard_deny: named regexes for commands that must never reach the model (defensive denylist).
+# Stage 2 read_only_allow: safe read-only commands that skip the model.
+# Stage 3: the decision model's answers, with thresholds. See src/dalab/gate/policy.py.
+thresholds:
+  t_hi: 0.5     # at/above this a risk noul forces deny (or privileged -> ask)
+  t_lo: 0.2     # a risk noul in [t_lo, t_hi) forces ask (uncertain middle band)
+  c_min: 0.6    # action_class confidence below this forces ask
+tuned: {}       # per-backend thresholds filled by scripts/tune_policy.py (key = "backend:model")
+hard_deny:
+  - name: rm_recursive_root_or_home
+    # Recursive rm whose target (in ANY argument position, incl. $(...) substitution) is the
+    # filesystem root, the home dir (~ or $HOME), or the cwd itself (. / ./ / $PWD) -- with or
+    # without a trailing sub-path. Workspace-local removes (build/, ./dist, node_modules, a bare
+    # glob *) are deliberately NOT matched; they go to the model.
+    pattern: '\brm\s+(?:-\S+\s+)*-\S*[rR]\S*(?:\s+\S+)*?\s+(?:/\*?|~(?:/\S*)?|\$\{?HOME\}?(?:/\S*)?|\.(?:/)?|\$\{?PWD\}?(?:/\S*)?)(?=[\s)`;&|]|$)'
+  - name: device_format
+    # mkfs.<fs> or `mkfs -t <fs>` writing a /dev/ node (flags allowed between mkfs and the device).
+    pattern: '\bmkfs(?:\.\w+)?\b[^\n|;&]*\s/dev/'
+  - name: raw_device_write
+    # dd/wipefs/shred as the command head (start, after a separator, or sudo) targeting a /dev/ disk.
+    # Head-anchored so a quoted mention (grep -r 'dd if=/dev/sda') is not a false positive.
+    pattern: '(?:^|[\n;&|(`])\s*(?:sudo\s+)?(?:dd|wipefs|shred)\b[^\n;&|]*?/dev/(?:sd|nvme|vd|hd)\w*'
+  - name: device_redirect
+    # Shell redirection of output into a raw block device (cat /dev/urandom > /dev/sda,
+    # echo x > /dev/nvme0n1). Same destruction class as raw_device_write; /dev/null, /dev/zero,
+    # /dev/stdout etc. are deliberately excluded (only sd|nvme|vd|hd|mmcblk block devices).
+    pattern: '>\s*/dev/(?:sd|nvme|vd|hd|mmcblk)\w*'
+  - name: proc_sysrq
+    pattern: '>\s*/proc/sysrq-trigger'
+  - name: fork_bomb
+    pattern: ':\s*\(\s*\)\s*\{\s*:\s*\|\s*:'
+  - name: remote_pipe_to_shell
+    pattern: '\b(?:curl|wget)\b[^|\n]*\|\s*(?:sudo\s+)?(?:ba|z|da)?sh\b'
+  - name: decode_then_execute
+    # base64 -d / base64 --decode / openssl enc / xxd -r piped into a shell, or eval $(...).
+    pattern: '(?:\bbase64\s+(?:-d|--decode)\b|\bopenssl\s+enc\b|\bxxd\s+-r\b)[^\n]*\|\s*(?:ba|z|da)?sh\b|\beval\s+"?\$\('
+  - name: force_push_protected_branch
+    # Force push to a standalone main/master/release ref (not a substring like feature/main-work).
+    pattern: '\bgit\s+push\b[^\n]*(?:--force\b|--force-with-lease\b|\s-f\b)[^\n]*(?:^|[\s/:])(?:main|master|release)(?:\s|$)'
+  - name: chmod_world_writable_root
+    pattern: '\bchmod\s+-R\s+0*777\s+/(?:\s|$)'
+read_only_allow:
+  heads: [ls, cat, head, tail, wc, grep, rg, pwd, which, whoami, id, du, df, stat, file, echo, date, uname, env, printenv, tree, hostname]
+  git_subcommands: [status, log, diff, show, branch, remote, config, rev-parse, describe, blame, shortlog]
