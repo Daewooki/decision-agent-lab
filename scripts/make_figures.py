@@ -20,27 +20,35 @@ import pandas as pd
 from dalab.plots import gate_figures
 
 
+def _read_indexed(path: Path, index_col: list[int]) -> pd.DataFrame:
+    """Read a summary CSV with a multi-index, tolerating the empty-table placeholder.
+
+    analyze_gate writes an empty DataFrame (a lone `""` line) for tables a partial run
+    can't fill; pandas raises IndexError on that with index_col set, so treat it as no data.
+    """
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path, index_col=index_col)
+    except (IndexError, ValueError, pd.errors.EmptyDataError):
+        return pd.DataFrame()
+
+
 def make_gate_figures(summary_dir: Path, out_dir: Path) -> list[Path]:
     summary_dir, out_dir = Path(summary_dir), Path(out_dir)
     written: list[Path] = []
 
-    headline_csv = summary_dir / "headline.csv"
-    if headline_csv.exists():
-        headline = pd.read_csv(headline_csv, index_col=[0, 1])
-        if len(headline):
-            written += gate_figures.fig_pass_vs_friction(headline, out_dir, "f3_pass_vs_friction")
+    headline = _read_indexed(summary_dir / "headline.csv", [0, 1])
+    if len(headline):
+        written += gate_figures.fig_pass_vs_friction(headline, out_dir, "f3_pass_vs_friction")
 
-    injection_csv = summary_dir / "injection.csv"
-    if injection_csv.exists():
-        injection = pd.read_csv(injection_csv, index_col=[0, 1, 2])
-        if len(injection):
-            written += gate_figures.fig_injection_heatmap(injection, out_dir, "f4_injection")
+    injection = _read_indexed(summary_dir / "injection.csv", [0, 1, 2])
+    if len(injection):
+        written += gate_figures.fig_injection_heatmap(injection, out_dir, "f4_injection")
 
-    pairs_csv = summary_dir / "pairs.csv"
-    if pairs_csv.exists():
-        pairs = pd.read_csv(pairs_csv, index_col=[0, 1])
-        if len(pairs):
-            written += gate_figures.fig_korean_gap(pairs, out_dir, "f9_korean_gap")
+    pairs = _read_indexed(summary_dir / "pairs.csv", [0, 1])
+    if len(pairs):
+        written += gate_figures.fig_korean_gap(pairs, out_dir, "f9_korean_gap")
 
     conf_dir = summary_dir / "confusion"
     if conf_dir.is_dir():
@@ -50,18 +58,14 @@ def make_gate_figures(summary_dir: Path, out_dir: Path) -> list[Path]:
                 written += gate_figures.fig_confusion(cm, p.stem.replace("__", " · "), out_dir, f"f2_cm_{p.stem}")
 
     # Trade-off frontiers (the headline insight figures) + cost bar, from the joined safety/cost table.
-    safety_cost_csv = summary_dir / "safety_cost.csv"
-    if safety_cost_csv.exists():
-        sc = pd.read_csv(safety_cost_csv, index_col=[0, 1])
-        if len(sc):
-            written += gate_figures.fig_safety_vs_cost(sc, out_dir, "f10_safety_vs_cost")
-            written += gate_figures.fig_safety_vs_latency(sc, out_dir, "f11_safety_vs_latency")
+    sc = _read_indexed(summary_dir / "safety_cost.csv", [0, 1])
+    if len(sc):
+        written += gate_figures.fig_safety_vs_cost(sc, out_dir, "f10_safety_vs_cost")
+        written += gate_figures.fig_safety_vs_latency(sc, out_dir, "f11_safety_vs_latency")
 
-    cost_csv = summary_dir / "cost.csv"
-    if cost_csv.exists():
-        cost = pd.read_csv(cost_csv, index_col=[0, 1])
-        if len(cost) and "cost_per_1k" in cost.columns:
-            written += gate_figures.fig_cost_bar(cost, out_dir, "f7_cost")
+    cost = _read_indexed(summary_dir / "cost.csv", [0, 1])
+    if len(cost) and "cost_per_1k" in cost.columns:
+        written += gate_figures.fig_cost_bar(cost, out_dir, "f7_cost")
 
     # Optional: calibration reliability points if a future analyze step emits them.
     cal_points = summary_dir / "calibration_points.csv"

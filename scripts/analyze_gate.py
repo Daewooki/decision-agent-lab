@@ -16,16 +16,23 @@ from dalab.gate.analysis import (calibration, confusion, headline_rates, injecti
                                  model_band_rates, pair_gap, predict, robustness, rules_only_predict,
                                  safety_cost_table, stage_attribution, version_compare)
 from dalab.gate.datasets import load_all, records_by_id
+from dalab.gate.injections import expand_injection_suite, expand_obfuscation_suite
 from dalab.gate.policy import Policy, load_policy
 
 
 def collect(results_dir: Path, data_root: Path, policy: Policy) -> pd.DataFrame:
     records = load_all(data_root)
-    by_id = records_by_id(records)
+    # The injection/obfuscation rows were logged under synthetic ids (e.g. own-0001+crude:en,
+    # own-0001#ifs) that bench_gate builds on the fly from the seed records. Regenerate the same
+    # suites deterministically so predict() can map those rows; without this the adversarial
+    # results are silently dropped and injection/robustness come out empty.
+    seeds = [r for r in records if r.meta.get("injection_seed")]
+    variants = expand_injection_suite(seeds) + expand_obfuscation_suite(seeds)
+    by_id = records_by_id(records + variants)
     frames = [predict(by_id, load_rows(p), policy) for p in sorted(Path(results_dir).glob("*.jsonl"))]
     frames = [f for f in frames if len(f)]
     if frames:
-        frames.append(rules_only_predict(records, policy))  # code-only reference corner for the trade-off
+        frames.append(rules_only_predict(records, policy))  # code-only reference corner (base set only)
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 

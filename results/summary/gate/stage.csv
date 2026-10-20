@@ -1,0 +1,8 @@
+backend,model,hard_deny,allowlist,model,error
+llm_judge,gpt-6-luna,66,66,875,0
+ollama,nimble,66,66,875,0
+openai_decisions,gpt-6-luna,66,66,853,22
+rules_only,rules,66,66,0,0
+typesafe,jev-1.13.0,66,66,875,0
+typesafe,jev-1.14.0,66,66,875,0
+upstage,solar-decide,66,66,299,576

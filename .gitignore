@@ -7,3 +7,6 @@ sandbox/
 results/tmp/
 data/cache/
 *.egg-info/
+
+# Raw pilot decision logs: large (~29MB) and regenerable via scripts/bench_gate.py; summary CSVs are committed.
+results/raw/
