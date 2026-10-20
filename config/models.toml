@@ -1,0 +1,73 @@
+# Pinned model ids, endpoints and prices. Prices are USD per 1M input tokens unless noted.
+# Every number here was checked on the date in [meta]; the bench records this table's values per row.
+[meta]
+prices_checked = "2026-10-20"
+location = "Seoul, KR"
+
+[backends.typesafe]
+endpoint = "https://api.typesafe.ai/v1/systemone"
+key_env = "TYPESAFE_API_KEY"
+models = ["jev-1.13.0", "jev-1.14.0"]
+price_input_per_m = 0.042
+price_output_per_m = 0.0
+max_options = 255
+timeout_s = 10
+
+[backends.openrouter]
+endpoint = "https://openrouter.ai/api/v1/systemone"
+key_env = "OPENROUTER_API_KEY"
+models = ["typesafe/jev-1.13", "typesafe/jev-1.14", "upstage/solar-decide"]
+price_input_per_m = 0.042   # the Jev models; per-model overrides below
+price_output_per_m = 0.0
+max_options = 255
+timeout_s = 20
+[backends.openrouter.prices]
+# OpenRouter lists upstage/solar-decide at $0.05/M input (a "50% off" promo; Upstage direct is $0.10/M), observed 2026-10-19.
+"upstage/solar-decide" = { input = 0.05 }
+
+[backends.jevstation]
+# Third-party relay. Ignores `model` (always answers with jev-1.13.0). Bills credits, not tokens:
+# 1 credit per call (state <= 8,000 chars, <= 5 questions), 3 credits for larger calls. Pilot use only.
+endpoint = "https://jevstation.com/api/v1/systemone"
+key_env = "JEVSTATION_API_KEY"
+models = ["jev-1.13.0"]
+price_input_per_m = 0.0
+price_output_per_m = 0.0
+price_per_credit = 0.00198   # 5,000 credits for $9.90
+max_options = 255
+timeout_s = 30
+
+[backends.upstage]
+endpoint = "https://api.upstage.ai/v1/systemone"
+key_env = "UPSTAGE_API_KEY"
+models = ["solar-decide"]
+price_input_per_m = 0.10
+price_output_per_m = 0.0
+max_options = 26
+timeout_s = 60
+
+[backends.openai_decisions]
+key_env = "OPENAI_API_KEY"
+models = ["gpt-6-luna"]
+price_input_per_m = 0.10
+price_output_per_m = 0.0
+max_options = 255
+timeout_s = 30
+
+[backends.ollama]
+endpoint_env = "OLLAMA_BASE_URL"
+endpoint_path = "/v1/systemone"
+models = ["nimble", "tev1:4b"]
+price_input_per_m = 0.0
+price_output_per_m = 0.0
+max_options = 26
+timeout_s = 120
+
+[backends.llm_judge]
+key_env = "OPENAI_API_KEY"
+models = ["gpt-6-luna", "gpt-6-sol"]
+max_options = 255
+timeout_s = 60
+[backends.llm_judge.prices]
+"gpt-6-luna" = { input = 0.10, output = 0.50 }
+"gpt-6-sol" = { input = 2.0, output = 10.0 }
