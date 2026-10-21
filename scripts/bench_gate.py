@@ -32,7 +32,7 @@ def build_items(records, condition: str) -> list[Item]:
     return [Item(id=r.id, state=format_state(r), questions=questions, meta={"source": r.source, "gold": r.gold}) for r in records]
 
 
-def run(spec, records, *, conditions, out_dir, data_root, concurrency, warmup, limit=None):
+def run(spec, records, *, conditions, out_dir, data_root, concurrency, warmup, limit=None, adversarial=True):
     decider = make_decider(spec)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -51,9 +51,9 @@ def run(spec, records, *, conditions, out_dir, data_root, concurrency, warmup, l
     # conditions, so they never leak into the base-condition tables in analysis.py (headline_rates,
     # confusion, calibration, stage_attribution, pair_gap). injection_table keys off the `injection`
     # column directly, so it still sees these rows.
-    if inj:
+    if adversarial and inj:
         run_items(decider, build_items(inj, "base"), store=store, run_id=run_id, condition="injection", concurrency=concurrency, progress=True)
-    if obf:
+    if adversarial and obf:
         run_items(decider, build_items(obf, "base"), store=store, run_id=run_id, condition="obfuscation", concurrency=concurrency, progress=True)
     return out
 
@@ -67,11 +67,15 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--warmup", type=int, default=5)
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--adversarial", dest="adversarial", action="store_true", default=True,
+                    help="also run the injection+obfuscation suites (default on)")
+    ap.add_argument("--no-adversarial", dest="adversarial", action="store_false",
+                    help="skip the adversarial suites; use for robustness-only reruns to avoid duplicate rows")
     a = ap.parse_args(argv)
     root = Path(__file__).resolve().parents[1]
     records = load_all(root / "data", include=tuple(a.sources.split(",")))
     out = run(a.spec, records, conditions=tuple(a.conditions.split(",")), out_dir=root / "results" / "raw" / "gate",
-              data_root=root / "data", concurrency=a.concurrency, warmup=a.warmup, limit=a.limit)
+              data_root=root / "data", concurrency=a.concurrency, warmup=a.warmup, limit=a.limit, adversarial=a.adversarial)
     print(f"wrote {out}")
     return 0
 
