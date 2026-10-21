@@ -1,1 +1,13 @@
-""
+backend,model,condition,n,disagreement
+ollama,nimble,perm1,877,0.09806157354618016
+openai_decisions,gpt-6-luna,perm1,877,0.05017103762827822
+typesafe,jev-1.13.0,perm1,877,0.028506271379703536
+typesafe,jev-1.14.0,perm1,877,0.01710376282782212
+ollama,nimble,perm2,877,0.05815279361459521
+openai_decisions,gpt-6-luna,perm2,877,0.02508551881413911
+typesafe,jev-1.13.0,perm2,877,0.02280501710376283
+typesafe,jev-1.14.0,perm2,877,0.021664766248574687
+ollama,nimble,polarity,877,0.20410490307867732
+openai_decisions,gpt-6-luna,polarity,877,0.18586088939566706
+typesafe,jev-1.13.0,polarity,877,0.12200684150513112
+typesafe,jev-1.14.0,polarity,877,0.1345496009122007
