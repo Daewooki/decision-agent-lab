@@ -1,0 +1,17 @@
+{
+  "note": "Tool catalog for the tool-routing mini-experiment. 'none' is added by the harness as an abstain option (no listed tool fits; the agent answers directly or the request is out of scope).",
+  "tools": [
+    {"id": "search_code", "desc": "Search the codebase for a symbol, string, or pattern and report where it appears."},
+    {"id": "read_file", "desc": "Read the contents of a specific file at a known path."},
+    {"id": "run_tests", "desc": "Run the project's automated test suite and report pass/fail."},
+    {"id": "run_lint", "desc": "Run the linter / static analysis and report violations."},
+    {"id": "git_status", "desc": "Show the current git branch, uncommitted changes, and diff summary."},
+    {"id": "open_pr", "desc": "Open a pull request for the current branch."},
+    {"id": "query_db", "desc": "Run a read-only query against the application database and return rows."},
+    {"id": "deploy_staging", "desc": "Deploy the current build to the staging environment."},
+    {"id": "rollback_release", "desc": "Roll back the most recent production release to the previous version."},
+    {"id": "send_slack", "desc": "Post a message to a team Slack channel."},
+    {"id": "web_search", "desc": "Search the public web for external, up-to-date information."},
+    {"id": "escalate_to_human", "desc": "Hand the decision off to a human operator for approval (use for high-consequence or policy-bound judgments)."}
+  ]
+}
