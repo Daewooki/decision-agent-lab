@@ -1,5 +1,5 @@
 # tests/test_live.py
-"""Live smoke tests. Run with: SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run pytest -m live -v"""
+"""Live smoke tests. Run with: uv run pytest -m live -v"""
 import os
 import pytest
 from dalab.backends.registry import make_decider

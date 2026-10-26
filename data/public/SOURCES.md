@@ -17,4 +17,6 @@
 | laya_guard | https://github.com/scs0209/laya-guard | `3859853dd693` | `LICENSE` | `8fa0a3b302e2d203…` | MIT | 예 |  |
 | aitejiu | https://github.com/Aitejiu/jev-harness-lab | `29ddf8210e3a` | `eval/datasets/bash_commands.jsonl` | `81c610d3a6a9f075…` | 없음(재배포 불가, 런타임 다운로드) | 아니오(런타임) | 130 |
 
+`laya_guard/testset_incidents.jsonl`은 원본 레코드 2건의 `id`, `incident` 값만 `scripts/fetch_data.py`의 `VENDOR_EDITS`대로 바꿔 동봉했습니다. 명령과 라벨은 원본과 같습니다. 위 표의 sha256은 원본 파일 기준이고, 동봉본의 sha256은 `2bf062dc9d775946…`입니다.
+
 라벨 매핑과 제외 규칙은 `src/dalab/gate/datasets.py`에 있습니다.

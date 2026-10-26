@@ -10,10 +10,10 @@ TypeSafe Jev, OpenAI Decisions API, Upstage Solar Decide, 로컬 Ollama 모델�
 cp .env.example .env   # 키 채우기
 uv sync --all-extras
 uv run pytest           # 네트워크 없는 단위 테스트
-SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run python scripts/smoke.py   # 백엔드별 1회 호출
+uv run python scripts/smoke.py   # 백엔드별 1회 호출
 ```
 
-기업망처럼 TLS 가로채기 프록시가 있는 환경에서는 위처럼 시스템 CA 번들을 지정해야 합니다. 코드는 인증서 검증을 끄지 않습니다.
+TLS를 검사하는 프록시를 거쳐야 하는 네트워크라면 `SSL_CERT_FILE`에 그 CA 번들 경로를 지정해 실행하세요. 코드는 인증서 검증을 끄지 않습니다.
 
 ## 두 가지 실험
 
@@ -23,7 +23,7 @@ SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run python scripts/smoke.py 
 결정 모델(Choice)과, 생성 모델이 구조화 출력으로 직접 고르는 방식(`llm_native`)을 비교합니다. 실제 실행은 하지 않는 드라이런입니다.
 
 ```bash
-SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run python scripts/bench_toolroute.py \
+uv run python scripts/bench_toolroute.py \
     --routers typesafe:jev-1.13.0,openai_decisions:gpt-6-luna,llm_native:gpt-6-luna --concurrency 2
 uv run python scripts/make_toolroute_figure.py
 ```
@@ -43,12 +43,14 @@ uv run python scripts/make_toolroute_figure.py
 나머지 130건은 실행 시 내려받음 — 아래 데이터 참고).
 
 ```bash
-uv run python scripts/fetch_data.py        # jev-harness-lab 130건을 data/cache/로 내려받음(선택)
-SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run python scripts/bench_gate.py \
+uv run python scripts/fetch_data.py        # jev-harness-lab 130건을 data/cache/로 내려받음(1,007건 재현 시)
+uv run python scripts/bench_gate.py --spec typesafe:jev-1.13.0 \
     --sources themsquared,godspede,laya_guard,aitejiu,own
 uv run python scripts/analyze_gate.py      # results/summary/gate/*.csv 재생성
-uv run python scripts/make_figures.py      # figures/*.png 재생성
+uv run python scripts/make_figures.py --gate   # figures/*.png 재생성
 ```
+
+`bench_gate.py`는 `--spec`을 바꿔 백엔드마다 한 번씩 실행합니다(`openai_decisions:gpt-6-luna`, `llm_judge:gpt-6-luna`, `ollama:nimble`, `upstage:solar-decide`, `typesafe:jev-1.14.0`). 코드 규칙만 쓴 기준선은 `analyze_gate.py`가 모델 호출 없이 계산합니다.
 
 서울 1회 측정 요약(`results/summary/gate/headline.csv`, 위험=deny 333건·안전=allow 476건 기준):
 
@@ -61,7 +63,7 @@ uv run python scripts/make_figures.py      # figures/*.png 재생성
 | Ollama nimble(로컬) | 7.8% | 44.5% | 0 | 454 |
 | Upstage solar-decide | 7.8% | 34.7% | 0.315 | 8,256 |
 
-Upstage 비용은 직접 API 정가(백만 토큰당 $0.10) 기준입니다.
+Upstage 비용은 직접 API 정가(백만 토큰당 $0.10) 기준입니다. 위험 통과율(`dangerous_pass`)은 정답 deny 중 allow로 통과된 비율, 안전 마찰률(`safe_friction`)은 정답 allow 중 자동 승인되지 않은(ask 또는 deny) 비율입니다.
 
 ## 데이터 출처
 

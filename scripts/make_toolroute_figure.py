@@ -16,7 +16,7 @@ FIG = ROOT / "figures"
 LABEL = {
     "typesafe:jev-1.13.0": "Jev 1.13\n(decision model)",
     "openai_decisions:gpt-6-luna": "OpenAI Decisions",
-    "llm_native:gpt-6-luna": "LLM native\ntool-calling",
+    "llm_native:gpt-6-luna": "LLM native\n(structured output)",
 }
 COLOR = {
     "typesafe:jev-1.13.0": "#1f77b4",
@@ -43,7 +43,7 @@ def main() -> None:
     ax.set_xlabel("p50 latency per routing call (ms, log scale)")
     ax.set_ylabel("routing accuracy (exact, n=40)")
     ax.set_ylim(0.78, 1.03)
-    ax.set_title("Tool routing: accuracy vs. latency (lower-left cost, upper-left is best)")
+    ax.set_title("Tool routing: accuracy vs. latency (upper-left is best)")
     ax.grid(True, which="both", alpha=0.25)
     fig.tight_layout()
     for ext in ("png", "svg"):

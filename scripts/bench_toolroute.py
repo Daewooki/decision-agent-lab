@@ -5,13 +5,13 @@ each router picks the single tool to call next (or abstains: 'none' / 'escalate_
 Routers compared:
   - decision models (Choice over tool ids + 'none'): e.g. typesafe:jev-1.13.0, openai_decisions:gpt-6-luna
   - llm_native:<model>  -- a generative LLM picks the tool via strict-JSON structured output
-    (the "LLM way": a full generation call just to route -- Besthub's routing paradox).
+    (the "LLM way": a full generation call just to decide where to route).
 
-Behind a TLS-intercepting corporate proxy, prefix with SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt.
+Behind a TLS-inspecting proxy, point SSL_CERT_FILE at its CA bundle.
 Dry-run only: nothing is executed; we record each router's choice, latency, cost.
 
 Usage:
-  SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run python scripts/bench_toolroute.py \
+  uv run python scripts/bench_toolroute.py \
       --routers typesafe:jev-1.13.0,openai_decisions:gpt-6-luna,llm_native:gpt-6-luna \
       --concurrency 2
 """

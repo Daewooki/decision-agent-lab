@@ -2,7 +2,7 @@
 """Run the gate decision matrix for one backend over chosen conditions and sources.
 
 Usage:
-  SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run python scripts/bench_gate.py \
+  uv run python scripts/bench_gate.py \
       --spec typesafe:jev-1.14.0 --conditions base,perm1,perm2 --sources themsquared,godspede,laya_guard,own --warmup 5
 """
 from __future__ import annotations

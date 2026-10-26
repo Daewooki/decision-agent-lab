@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +23,7 @@ class Source:
     sha256: str    # expected digest of the raw file
     vendor: bool   # copy into data/public/<name>/ (only if the license allows redistribution)
     kind: str      # data | license | meta
+    vendored_sha256: str | None = None  # digest of the data/public/ copy when VENDOR_EDITS changes it
 
 
 MANIFEST: list[Source] = [
@@ -49,7 +49,8 @@ MANIFEST: list[Source] = [
     Source("laya_guard", "scs0209/laya-guard", "3859853dd69332fd7795c53151332dc3c29a3e7e", "eval/testset_ko_30.jsonl",
            "485cc47c5e178cac8f4542820b2ba68037bccf199ce316122b0262ac7c9109fd", True, "data"),
     Source("laya_guard", "scs0209/laya-guard", "3859853dd69332fd7795c53151332dc3c29a3e7e", "eval/testset_incidents.jsonl",
-           "8f5fadc632bca4daa803afb045853189c4f0d080f6c73df01bb2675e5eb2c7fd", True, "data"),
+           "8f5fadc632bca4daa803afb045853189c4f0d080f6c73df01bb2675e5eb2c7fd", True, "data",
+           vendored_sha256="2bf062dc9d775946b7e3503b84af9830e07633f63b47344dda90714bf841b7d6"),
     Source("laya_guard", "scs0209/laya-guard", "3859853dd69332fd7795c53151332dc3c29a3e7e", "LICENSE",
            "8fa0a3b302e2d203350669ebd33b32d6c6980a44284819e2ce2f360470355e64", True, "license"),
     # Aitejiu/jev-harness-lab — NO LICENSE: runtime cache only, never vendored
@@ -58,6 +59,20 @@ MANIFEST: list[Source] = [
 ]
 
 LICENSES = {"themsquared": "Apache-2.0", "godspede": "Apache-2.0", "laya_guard": "MIT", "aitejiu": "없음(재배포 불가, 런타임 다운로드)"}
+
+# Vendored copies that deliberately differ from upstream. The upstream bytes are verified against
+# Source.sha256 first; then rows whose MATCH_FIELD (the command, which the edits never touch) equals a
+# VENDOR_EDITS key get these field values before the copy is written to data/public/. Only identifier
+# fields may change: commands and labels stay verbatim, so no gate result depends on these edits, and the
+# upstream record ids are never referenced here. SOURCES.md notes every edited file.
+VENDOR_EDITS: dict[tuple[str, str], dict[str, dict[str, str]]] = {
+    ("laya_guard", "eval/testset_incidents.jsonl"): {
+        "rm -rf tests/ patches/ plan/ ~/": {"id": "agent-home-1", "incident": "agent-home-wipe"},
+        "rm -rf tests/patches/plan/ ~/": {"id": "agent-home-2", "incident": "agent-home-wipe"},
+    },
+}
+EDITABLE_FIELDS = frozenset({"id", "incident"})
+MATCH_FIELD = "tool_call"
 
 
 def raw_url(src: Source) -> str:
@@ -84,10 +99,42 @@ def fetch_one(src: Source, cache_root: Path, public_root: Path, client: httpx.Cl
         target.unlink(missing_ok=True)
         raise RuntimeError(f"sha256 mismatch for {src.repo}@{src.commit[:8]}:{src.path}: got {got}, expected {src.sha256}")
     if src.vendor:
+        data = apply_vendor_edits(src, target.read_bytes())
+        want = src.vendored_sha256 or src.sha256
+        got = hashlib.sha256(data).hexdigest()
+        if got != want:
+            raise RuntimeError(f"vendored copy of {src.repo}:{src.path} hashes to {got}, expected {want}")
         dest = public_root / src.name / Path(src.path).name
         dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(target, dest)
+        dest.write_bytes(data)
     return target
+
+
+def apply_vendor_edits(src: Source, raw: bytes) -> bytes:
+    """Return the bytes to vendor for `src`: upstream unchanged, or with its VENDOR_EDITS applied.
+
+    Rows are matched on MATCH_FIELD (the command), which the edits never change, so the upstream
+    record ids are not referenced.
+    """
+    edits = VENDOR_EDITS.get((src.name, src.path))
+    if not edits:
+        return raw
+    out, seen = [], set()
+    for line in raw.decode("utf-8").splitlines(keepends=True):
+        rec = json.loads(line) if line.strip() else None
+        key = rec.get(MATCH_FIELD) if isinstance(rec, dict) else None
+        patch = edits.get(key)
+        if patch:
+            if not set(patch) <= EDITABLE_FIELDS:
+                raise ValueError(f"VENDOR_EDITS may only change {sorted(EDITABLE_FIELDS)}, got {sorted(patch)}")
+            seen.add(key)
+            rec.update(patch)
+            line = json.dumps(rec, ensure_ascii=False) + line[len(line.rstrip("\r\n")):]
+        out.append(line)
+    missing = set(edits) - seen
+    if missing:
+        raise RuntimeError(f"VENDOR_EDITS rows not found in {src.repo}:{src.path}: {sorted(missing)}")
+    return "".join(out).encode("utf-8")
 
 
 def count_rows(path: Path) -> int | None:
@@ -110,6 +157,14 @@ def write_sources_md(manifest: list[Source], counts: dict[str, int], path: Path)
         n = counts.get(f"{s.name}/{Path(s.path).name}", counts.get(s.name) if s.kind == "data" else None)
         lines.append(f"| {s.name} | https://github.com/{s.repo} | `{s.commit[:12]}` | `{s.path}` | `{s.sha256[:16]}…` | "
                      f"{LICENSES[s.name]} | {'예' if s.vendor else '아니오(런타임)'} | {n if n is not None else ''} |")
+    for s in manifest:
+        if not s.vendored_sha256:
+            continue
+        rows = VENDOR_EDITS.get((s.name, s.path), {})
+        fields = ", ".join(f"`{f}`" for f in sorted({f for patch in rows.values() for f in patch}))
+        lines += ["", f"`{s.name}/{Path(s.path).name}`은 원본 레코드 {len(rows)}건의 {fields} 값만 "
+                  "`scripts/fetch_data.py`의 `VENDOR_EDITS`대로 바꿔 동봉했습니다. 명령과 라벨은 원본과 같습니다. "
+                  f"위 표의 sha256은 원본 파일 기준이고, 동봉본의 sha256은 `{s.vendored_sha256[:16]}…`입니다."]
     lines += ["", "라벨 매핑과 제외 규칙은 `src/dalab/gate/datasets.py`에 있습니다."]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
